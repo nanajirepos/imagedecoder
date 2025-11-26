@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -75,6 +76,7 @@
       const regex = /"([^"]+)"/g;
       let match;
       let found = 0;
+      const processed = new Set();
 
       while ((match = regex.exec(input)) !== null) {
         let raw = match[1];
@@ -89,7 +91,54 @@
         // Skip short strings that are unlikely to be real image Base64
         if (base64Str.length < 100) continue;
 
+        // Avoid rendering duplicates if the same Base64 string appears multiple times
+        if (processed.has(base64Str)) continue;
+        processed.add(base64Str);
+
         // Create container for image + resolution info
+        const container = document.createElement("div");
+        container.className = "image-container";
+
+        const img = document.createElement("img");
+        const info = document.createElement("div");
+        info.className = "image-info";
+        info.textContent = "Resolution: detecting...";
+
+        img.onload = function() {
+          info.textContent = "Resolution: " + img.naturalWidth + " x " + img.naturalHeight + " px";
+        };
+
+        img.onerror = function() {
+          info.textContent = "Failed to load image";
+        };
+
+        img.src = "data:image/jpeg;base64," + base64Str;
+
+        container.appendChild(img);
+        container.appendChild(info);
+        gallery.appendChild(container);
+
+        found++;
+      }
+
+      // Additionally, look for standalone Base64-like strings that are not inside double quotes
+      // We first unicode-decode the entire input, then search for long Base64-looking runs.
+      const unicodeInput = decodeUnicode(input);
+      const standaloneRegex = /[A-Za-z0-9+/=]{100,}/g;
+      let standaloneMatch;
+
+      while ((standaloneMatch = standaloneRegex.exec(unicodeInput)) !== null) {
+        let base64Str = standaloneMatch[0];
+        if (!base64Str) continue;
+
+        // Trim whitespace just in case and ensure minimum length
+        base64Str = base64Str.replace(/\s+/g, "");
+        if (base64Str.length < 100) continue;
+
+        // Skip if we already rendered this Base64 image from the quoted pass
+        if (processed.has(base64Str)) continue;
+        processed.add(base64Str);
+
         const container = document.createElement("div");
         container.className = "image-container";
 
